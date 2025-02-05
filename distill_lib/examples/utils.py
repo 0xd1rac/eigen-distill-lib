@@ -24,7 +24,7 @@ def evaluate(model, data_loader, device):
             correct += (preds == labels).sum().item()
     return 100 * correct / total
 
-def get_dataloader():
+def get_dataloaders():
     transform_train = transforms.Compose([
         transforms.Resize(224),
         transforms.RandomCrop(224, padding=32),
