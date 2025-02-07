@@ -1,5 +1,8 @@
 # Eigen.AI Knowledge Distillation Python Library
 This repository provides an end-to-end implementation of Knowledge Distillation (KD) techniques (offline, online, self) for model compression and optimization. Check out .md for current goals of this prject.
+- [ ] Offline Distillation Pipeline 
+- [ ] Online Distillation Pipeline
+- [ ] Self Distillation Pipeline 
 
 ## Features 
 
