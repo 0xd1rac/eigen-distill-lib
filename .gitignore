@@ -1,2 +1,4 @@
 distill_lib/data
 venv/
+examples/data
+.DS_Store
