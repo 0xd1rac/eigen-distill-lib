@@ -1,7 +1,7 @@
 # Eigen Knowledge Distillation Python Library
 This repository is meant to to provide an end-to-end implementation of Knowledge Distillation (KD) techniques (offline, online, self) for model compression and optimization. The goal is to democratise ML model inference through distillation. 
 
-## 🔥 How Eigen Can Help You with Knowledge Distillation  
+## How Eigen Can Help You with Knowledge Distillation  
 
 ### 1️⃣ Deploying AI on Mobile 📱  
 **Have a new vision segmentation model but don’t want it to drain memory or battery on mobile devices?**  
