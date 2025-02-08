@@ -75,12 +75,6 @@ class SoftTargetDistiller(BaseOfflineDistiller):
         Returns:
             list: A list of combined losses for each student.
         """
-        # Move models to the specified device
-        for student in self.students:
-            student.to(device)
-        for teacher in self.teachers:
-            teacher.to(device)
-
         # Move inputs to the specified device
         x, labels = x.to(device), labels.to(device)
         
@@ -152,6 +146,12 @@ class SoftTargetDistiller(BaseOfflineDistiller):
         logger.setLevel(logging.INFO)
 
         average_losses = [0.0] * len(self.students)
+
+        for student in self.students:
+            student.to(device)
+        
+        for teacher in self.teachers:
+            teacher.to(device)
 
         for epoch in range(1, num_epochs + 1):
             running_losses = [0.0] * len(self.students)
