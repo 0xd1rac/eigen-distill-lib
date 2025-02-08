@@ -4,6 +4,8 @@ import torch.nn as nn
 from typing import Any, List, Callable, Optional
 from ..items.student import Student
 from ..items.teacher import Teacher
+from ..strategies.teacher_weighting import TeacherWeightingStrategy
+from ..strategies.weighting_strategies import UniformWeightingStrategy
 
 class BaseOfflineDistiller(ABC):
     def __init__(self, teachers: List[Teacher], students: List[Student]) -> None:

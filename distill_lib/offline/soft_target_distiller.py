@@ -7,6 +7,8 @@ import logging
 from typing import Callable, Optional, List
 from ..items.teacher import Teacher
 from ..items.student import Student
+from ..strategies.teacher_weighting import TeacherWeightingStrategy
+from ..strategies.weighting_strategies import UniformWeightingStrategy
 def default_distill_loss_fn(student_log_probs: torch.Tensor, teacher_probs: torch.Tensor, temperature: float) -> torch.Tensor:
     """
     Default distillation loss function using F.kl_div.
@@ -26,18 +28,25 @@ def default_distill_loss_fn(student_log_probs: torch.Tensor, teacher_probs: torc
 class SoftTargetDistiller(BaseOfflineDistiller):
     def __init__(self, 
                  students: List[Student],
-                 teachers: List[Teacher]) -> None:
+                 teachers: List[Teacher],
+                 weighting_strategy: TeacherWeightingStrategy = None) -> None:
         """
         Initializes the SoftTargetDistiller.
 
         Args:
             students: List of Student instances
             teachers: List of Teacher instances
-            learning_rate: Learning rate for the optimizer if not provided
+            weighting_strategy: Strategy for computing teacher weights (defaults to uniform weighting)
         """
         super().__init__(teachers, students)
+        
+        # Set default weighting strategy if none provided
+        if weighting_strategy is None:
+            self.weighting_strategy = UniformWeightingStrategy()
+        else:
+            self.weighting_strategy = weighting_strategy
     
-        # Set default loss functions.
+        # Set default loss functions
         self.base_loss_fn = nn.CrossEntropyLoss()
         self.distill_loss_fn = default_distill_loss_fn
 
@@ -48,8 +57,7 @@ class SoftTargetDistiller(BaseOfflineDistiller):
                      base_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None, 
                      distill_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor, float], torch.Tensor]] = None, 
                      alpha: float = 0.5, 
-                     temperature: float = 1.0,
-                     teacher_weights: Optional[list] = None) -> list:
+                     temperature: float = 1.0) -> list:
         """
         Performs one step of distillation for each student using the specified or default loss functions.
 
@@ -61,7 +69,6 @@ class SoftTargetDistiller(BaseOfflineDistiller):
             distill_loss_fn: Distillation loss function to override self.distill_loss_fn
             alpha: Weighting factor for the distillation loss
             temperature: Temperature for softening outputs
-            teacher_weights: Weights for averaging teacher outputs
         
         Returns:
             list: A list of combined losses for each student
@@ -73,20 +80,26 @@ class SoftTargetDistiller(BaseOfflineDistiller):
         base_loss_fn = base_loss_fn if base_loss_fn is not None else self.base_loss_fn
         distill_loss_fn = distill_loss_fn if distill_loss_fn is not None else self.distill_loss_fn
 
-        # Compute teacher outputs and average them
+        # Move teacher models to device and compute outputs
         teacher_outputs = []
         with torch.no_grad():
             for teacher in self.teachers:
+                teacher.model.to(device)
                 teacher_outputs.append(teacher.model(x))
         
-        # Average teacher outputs
-        if teacher_weights is None:
-            teacher_weights = [1.0 / len(self.teachers)] * len(self.teachers)
-        combined_teacher_output = sum(w * F.softmax(output / temperature, dim=1) for w, output in zip(teacher_weights, teacher_outputs))
+        # Get teacher weights from the strategy
+        teacher_weights = self.weighting_strategy.compute_weights(self.teachers, x, temperature)
+        
+        # Compute weighted average of teacher outputs
+        combined_teacher_output = sum(w * F.softmax(output / temperature, dim=1) 
+                                    for w, output in zip(teacher_weights, teacher_outputs))
         
         # Compute losses for each student
         total_losses = []
-        for student in self.students:
+        for i, student in enumerate(self.students):
+            # Move student model to device
+            student.model.to(device)
+            
             # Compute student outputs
             student_outputs = student.model(x)
             
@@ -103,7 +116,10 @@ class SoftTargetDistiller(BaseOfflineDistiller):
 
             # Backpropagation and optimization
             student.optimizer.zero_grad()
-            total_loss.backward()
+            if i < len(self.students) - 1:
+                total_loss.backward(retain_graph=True)
+            else:
+                total_loss.backward()
             student.optimizer.step()
 
         return total_losses
@@ -120,6 +136,7 @@ class SoftTargetDistiller(BaseOfflineDistiller):
 
         Args:
             num_epochs: Number of epochs to train
+            device: The device on which to run the computations
             base_loss_fn: Base loss function to override self.base_loss_fn
             distill_loss_fn: Distillation loss function to override self.distill_loss_fn
             alpha: Weighting factor for the distillation loss
@@ -151,7 +168,7 @@ class SoftTargetDistiller(BaseOfflineDistiller):
                 if len(set(batch_sizes)) != 1:
                     raise ValueError("All data loaders must have the same batch size")
 
-                # Use the first student's device as reference
+                # Use first student batch
                 input, labels = student_batches[0]
                 losses = self.distill_step(input, labels, device, base_loss_fn, distill_loss_fn, alpha, temperature)
                 
