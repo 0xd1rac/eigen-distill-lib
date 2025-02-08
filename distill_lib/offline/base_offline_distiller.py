@@ -1,32 +1,34 @@
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
-from typing import Any
+from typing import Any, List
+from ..items.student import Student
+from ..items.teacher import Teacher
+from typing import Callable, Optional, List
 
 class BaseOfflineDistiller(ABC):
-    def __init__(self, teachers: list, students: list) -> None:
+    def __init__(self, teachers: List[Teacher], students: List[Student]) -> None:
+        """
+        Initialize the base offline distiller with lists of Teacher and Student instances.
+        
+        Args:
+            teachers: List of Teacher instances
+            students: List of Student instances
+        """
         self.teachers = teachers
         self.students = students
 
-        # Freeze the teacher models: set to eval mode and disable gradient computation.
-        for teacher in self.teachers:
-            teacher.eval()
-            for param in teacher.parameters():
-                param.requires_grad = False
-
-        # Ensure that the student models are trainable.
-        for student in self.students:
-            student.train()
-            for param in student.parameters():
-                param.requires_grad = True
 
     @abstractmethod
     def distill_step(self, 
                      x: torch.Tensor, 
                      labels: torch.Tensor, 
-                     device: str, 
-                     *args: Any, 
-                     **kwargs: Any) -> torch.Tensor:
+                     device: str,
+                     base_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None, 
+                     distill_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor, float], torch.Tensor]] = None, 
+                     alpha: float = 0.5, 
+                     temperature: float = 1.0,
+                     teacher_weights: Optional[list] = None) -> list:
         """
         Perform one step of distillation.
 
