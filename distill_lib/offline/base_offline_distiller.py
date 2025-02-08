@@ -4,19 +4,21 @@ import torch.nn as nn
 from typing import Any
 
 class BaseOfflineDistiller(ABC):
-    def __init__(self, teacher: nn.Module, student: nn.Module) -> None:
-        self.teacher = teacher
-        self.student = student
+    def __init__(self, teachers: list, students: list) -> None:
+        self.teachers = teachers
+        self.students = students
 
-        # Freeze the teacher model: set to eval mode and disable gradient computation.
-        self.teacher.eval()
-        for param in self.teacher.parameters():
-            param.requires_grad = False
+        # Freeze the teacher models: set to eval mode and disable gradient computation.
+        for teacher in self.teachers:
+            teacher.eval()
+            for param in teacher.parameters():
+                param.requires_grad = False
 
-        # Ensure that the student model is trainable.
-        self.student.train()
-        for param in self.student.parameters():
-            param.requires_grad = True
+        # Ensure that the student models are trainable.
+        for student in self.students:
+            student.train()
+            for param in student.parameters():
+                param.requires_grad = True
 
     @abstractmethod
     def distill_step(self, 

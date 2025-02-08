@@ -25,14 +25,23 @@ This repository is meant to provide an end-to-end implementation of Knowledge Di
 💡 Use **contrastive distillation** in Eigen to train a lightweight generative model that runs faster while keeping high visual fidelity.  
 
 ## Features 
-- [ ] Offline Distillation Pipeline
-  - [ ] Probability Output - Student learns the teacher's soft logits 
-  - [ ] Intermediate Feature Maps - Student mimics the teachers's activations
-  - [ ] Feature Map Relations - Student captures the relationships between teacher's feature maps
-  - [ ] Attention Transfer
-  - [ ] ViT to CNN Transfer 
-  - [ ] Multi-Teacher Support
-  - [ ] Customizable Loss Functions
+- [ ] Offline: Soft Target Distiller - Student learns the teachers's soft logits
+  - [x] Single teacher, Single student pipeline
+  - [ ] Single teacher, Many students pipeline
+    - [ ] Parallel Distillation: Training multiple students concurrently using the same teacher predictions.
+    
+  - [ ] Many teachers, Single student pipeline
+    - [ ] Weighted averaging of teachers' weights (Equal weights by default)
+    - [ ] Adaptive Weighing: gating networks/attention mechanisms
+    - [ ] Adaptive Weighing: confidence based
+    - [ ] Teacher Selection: sample-specific teacher selection 
+    - [ ] Teacher Selection: mixture of experts 
+
+  - [ ] Many teachers, Many student pipeline  
+    - [ ] Parallel Multi-Teacher Distillation
+    - [ ] Peer-to-Peer Distillation
+    - [ ] Clustered Teacher Assignments
+    - [ ] Inter-Student Communication 
 
 ## Installation
 To install the library, you can clone this repository and install the dependencies using pip:

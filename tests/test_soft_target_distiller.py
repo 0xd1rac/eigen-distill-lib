@@ -2,6 +2,7 @@ import unittest
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 from distill_lib.offline.soft_target_distiller import SoftTargetDistiller
 
 class SimpleModel(nn.Module):
@@ -27,8 +28,11 @@ class TestSoftTargetDistiller(unittest.TestCase):
         self.assertIsInstance(loss, torch.Tensor)
 
     def test_distill(self) -> None:
-        train_loader = [(torch.randn(5, 10), torch.randint(0, 2, (5,))) for _ in range(10)]
-        average_loss = self.distiller.distill(train_loader, num_epochs=1)
+        data = torch.randn(10, 10)
+        labels = torch.randint(0, 2, (10,))
+        teacher_loader = DataLoader(TensorDataset(data, labels), batch_size=5)
+        student_loader = DataLoader(TensorDataset(data, labels), batch_size=5)
+        average_loss = self.distiller.distill(teacher_loader, student_loader, num_epochs=1)
         self.assertIsInstance(average_loss, float)
 
 if __name__ == '__main__':
