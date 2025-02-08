@@ -1,6 +1,6 @@
 # Eigen Knowledge Distillation Python Library
 
-This repository is meant to provide an end-to-end implementation of Knowledge Distillation (KD) techniques (offline, online, self) for model compression and optimization. The goal is to democratize ML model inference through distillation.
+This repository provides an end-to-end implementation of Knowledge Distillation (KD) techniques (offline, online, self) for model compression and optimization. The goal is to democratize ML model inference through distillation.
 
 ## How Eigen Can Help You with Knowledge Distillation
 
@@ -24,25 +24,6 @@ This repository is meant to provide an end-to-end implementation of Knowledge Di
 **Want faster inference for a diffusion model or GAN without sacrificing image quality?**  
 💡 Use **contrastive distillation** in Eigen to train a lightweight generative model that runs faster while keeping high visual fidelity.  
 
-## Features 
-- [ ] Offline: Soft Target Distiller - Student learns the teachers's soft logits
-  - [x] Single teacher, Single student pipeline
-  - [ ] Single teacher, Many students pipeline
-    - [ ] Parallel Distillation: Training multiple students concurrently using the same teacher predictions.
-    
-  - [ ] Many teachers, Single student pipeline
-    - [ ] Weighted averaging of teachers' weights (Equal weights by default)
-    - [ ] Adaptive Weighing: gating networks/attention mechanisms
-    - [ ] Adaptive Weighing: confidence based
-    - [ ] Teacher Selection: sample-specific teacher selection 
-    - [ ] Teacher Selection: mixture of experts 
-
-  - [ ] Many teachers, Many student pipeline  
-    - [ ] Parallel Multi-Teacher Distillation
-    - [ ] Peer-to-Peer Distillation
-    - [ ] Clustered Teacher Assignments
-    - [ ] Inter-Student Communication 
-
 ## Installation
 To install the library, you can clone this repository and install the dependencies using pip:
 ```bash
@@ -50,6 +31,171 @@ git clone https://github.com/0xd1rac/eigen-distill-lib.git
 cd eigen-distill-lib
 pip install -r requirements.txt
 ```
+
+## Usage 
+
+### 1. Basic Offline Distillation
+The simplest form of distillation using a single teacher and student:
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import models
+from distill_lib.offline.soft_target_distiller import SoftTargetDistiller
+from distill_lib.items.student import Student
+from distill_lib.items.teacher import Teacher
+from examples.utils import get_dataloaders, evaluate
+
+# Set up the device
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Load data
+teacher_train_loader, student_train_loader, teacher_test_loader, student_test_loader = get_dataloaders()
+
+# Initialize teacher model
+teacher_model = models.resnet50(pretrained=True)
+teacher_model.fc = nn.Linear(teacher_model.fc.in_features, 10)
+teacher = Teacher(model=teacher_model, data_loader=teacher_train_loader)
+
+# Initialize student model
+student_model = models.resnet18(pretrained=False)
+student_model.fc = nn.Linear(student_model.fc.in_features, 10)
+optimizer = optim.SGD(student_model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+student = Student(model=student_model, optimizer=optimizer, data_loader=student_train_loader)
+
+# Create distiller
+distiller = SoftTargetDistiller(students=[student], teachers=[teacher])
+
+# Distillation parameters
+num_epochs = 1
+alpha = 0.5  # Weight for distillation loss
+temperature = 2.0  # Temperature for softening outputs
+
+# Perform distillation
+losses = distiller.distill(num_epochs, device, alpha=alpha, temperature=temperature)
+
+# Evaluate the student model
+test_acc = evaluate(student.model, student_test_loader, device)
+print(f"Test Accuracy: {test_acc:.2f}%")
+```
+
+### 2. Multi-Teacher Distillation with Different Weighting Strategies
+
+Eigen supports multiple strategies for weighting teacher contributions when using multiple teachers:
+
+#### a) Uniform Weighting Strategy
+Use this when you want equal contributions from all teachers:
+
+```python
+from distill_lib.strategies.weighting_strategies import UniformWeightingStrategy
+
+# Initialize strategy
+weighting_strategy = UniformWeightingStrategy()
+
+# Create distiller with uniform weighting
+distiller = SoftTargetDistiller(
+    students=[student],
+    teachers=teacher_models,
+    weighting_strategy=weighting_strategy
+)
+```
+
+#### b) Confidence-Based Weighting Strategy
+Use this when you want to weight teachers based on their prediction confidence:
+
+```python
+from distill_lib.strategies.weighting_strategies import ConfidenceBasedWeightingStrategy
+
+# Initialize strategy
+weighting_strategy = ConfidenceBasedWeightingStrategy()
+
+# Create distiller with confidence-based weighting
+distiller = SoftTargetDistiller(
+    students=[student],
+    teachers=teacher_models,
+    weighting_strategy=weighting_strategy
+)
+```
+
+#### c) Gating Network Weighting Strategy
+Use this when you want to learn dynamic weights based on input features:
+
+```python
+from distill_lib.strategies.weighting_strategies import GatingNetworkWeightingStrategy
+
+# Get feature size from the teacher's penultimate layer
+feature_size = teacher_models[0].model.fc.in_features
+
+# Initialize strategy
+weighting_strategy = GatingNetworkWeightingStrategy(
+    feature_size=feature_size,
+    num_teachers=len(teacher_models)
+)
+
+# Create optimizer for the gating network
+gating_optimizer = optim.Adam(weighting_strategy.gating_network.parameters(), lr=0.001)
+
+# Create distiller with gating network
+distiller = SoftTargetDistiller(
+    students=[student],
+    teachers=teacher_models,
+    weighting_strategy=weighting_strategy
+)
+```
+
+#### d) Sample-Specific Weighting Strategy
+Use this when you want to weight teachers based on their historical performance:
+
+```python
+from distill_lib.strategies.weighting_strategies import SampleSpecificWeightingStrategy
+
+# Initialize strategy with memory size
+weighting_strategy = SampleSpecificWeightingStrategy(memory_size=1000)
+
+# Create distiller
+distiller = SoftTargetDistiller(
+    students=[student],
+    teachers=teacher_models,
+    weighting_strategy=weighting_strategy
+)
+
+# During training, update performance history
+def update_teacher_history(inputs, labels):
+    teacher_performances = []
+    for teacher in teacher_models:
+        outputs = teacher.model(inputs)
+        performance = compute_teacher_performance(outputs, labels)
+        teacher_performances.append(performance)
+    weighting_strategy.update_history(inputs, teacher_performances)
+```
+
+### 3. Complete Examples
+
+For complete working examples of each strategy, refer to the example files:
+- `examples/soft_target_distillation_example.py`: Basic distillation
+- `examples/confidence_based_distillation_example.py`: Confidence-based weighting
+- `examples/gating_network_distillation_example.py`: Gating network weighting
+- `examples/sample_specific_distillation_example.py`: Sample-specific weighting
+
+To run an example:
+```bash
+python examples/confidence_based_distillation_example.py
+```
+
+## Features and Status
+- [x] Offline: Soft Target Distiller
+  - [x] Single teacher, Single student pipeline
+  - [x] Single teacher, Many students pipeline
+  - [x] Many teachers, Single student pipeline
+    - [x] Uniform weighting
+    - [x] Confidence-based weighting
+    - [x] Gating network weighting
+    - [x] Sample-specific weighting
+  - [x] Many teachers, Many students pipeline
+
+## Contributing
+We welcome contributions! Please feel free to submit a Pull Request.
 
 ## Distillation with Eigen
 Eigen provides a comprehensive suite of distillation techniques to optimize and compress machine learning models. Here's an overview of the available methods:
