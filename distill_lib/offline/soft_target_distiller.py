@@ -5,9 +5,8 @@ import torch.nn.functional as F
 from .base_offline_distiller import BaseOfflineDistiller
 import logging
 from typing import Callable, Optional, List
-from ..items.student import Student
 from ..items.teacher import Teacher
-
+from ..items.student import Student
 def default_distill_loss_fn(student_log_probs: torch.Tensor, teacher_probs: torch.Tensor, temperature: float) -> torch.Tensor:
     """
     Default distillation loss function using F.kl_div.
@@ -27,8 +26,7 @@ def default_distill_loss_fn(student_log_probs: torch.Tensor, teacher_probs: torc
 class SoftTargetDistiller(BaseOfflineDistiller):
     def __init__(self, 
                  students: List[Student],
-                 teachers: List[Teacher]
-                 ) -> None:
+                 teachers: List[Teacher]) -> None:
         """
         Initializes the SoftTargetDistiller.
 
@@ -112,6 +110,7 @@ class SoftTargetDistiller(BaseOfflineDistiller):
 
     def distill(self, 
                 num_epochs: int, 
+                device: str,
                 base_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None, 
                 distill_loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor, float], torch.Tensor]] = None, 
                 alpha: float = 0.5, 
@@ -153,7 +152,6 @@ class SoftTargetDistiller(BaseOfflineDistiller):
                     raise ValueError("All data loaders must have the same batch size")
 
                 # Use the first student's device as reference
-                device = self.students[0].device
                 input, labels = student_batches[0]
                 losses = self.distill_step(input, labels, device, base_loss_fn, distill_loss_fn, alpha, temperature)
                 

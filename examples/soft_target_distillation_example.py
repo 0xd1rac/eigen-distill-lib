@@ -18,7 +18,7 @@ def main():
     for _ in range(2):
         model = models.resnet50(pretrained=True)
         model.fc = nn.Linear(model.fc.in_features, 10)
-        teacher_models.append(Teacher(model=model, device=device, data_loader=teacher_train_loader))
+        teacher_models.append(Teacher(model=model, data_loader=teacher_train_loader))
     
     # Set up multiple student models
     student_models = []
@@ -26,7 +26,7 @@ def main():
         model = models.resnet18(pretrained=False)
         model.fc = nn.Linear(model.fc.in_features, 10)
         optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-        student_models.append(Student(model=model, optimizer=optimizer, device=device, data_loader=student_train_loader))
+        student_models.append(Student(model=model, optimizer=optimizer, data_loader=student_train_loader))
     
     # Instantiate the SoftTargetDistiller with multiple students and teachers
     distiller = SoftTargetDistiller(students=student_models, teachers=teacher_models)
@@ -36,8 +36,8 @@ def main():
     alpha = 0.5         # Weight for distillation loss
     temperature = 2.0   # Temperature for softening outputs
 
-    # Use the distill method for training (no need to pass data loaders as they're in the Student/Teacher instances)
-    distiller.distill(num_epochs=num_epochs, alpha=alpha, temperature=temperature)
+    # Use the distill method for training
+    losses = distiller.distill(num_epochs, device, alpha=alpha, temperature=temperature)
     
     # Evaluate each student model
     for i, student in enumerate(student_models):
