@@ -214,60 +214,8 @@ Online distillation allows the student model to learn from the teacher model in 
 ![Online Distillation](resources/img/online_distillation.png)
 
 
-
-
 ### Self-Distillation
 
 Self-distillation involves a single model learning from its own predictions or internal representations. This technique can improve model performance by refining its feature extraction capabilities.
 
 ![Self Distillation](resources/img/self_distillation.png)
-
-
-
-
-## Usage 
-### 1. Offline Distillation: Soft Target Strategy
-
-Here's an example of how to use the `SoftTargetDistiller` for offline distillation:
-
-```python
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchvision import models
-from distill_lib.offline.soft_target_distiller import SoftTargetDistiller
-from examples.utils import get_dataloaders, evaluate
-
-# Set up the device
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-# Load data
-train_loader, test_loader = get_dataloaders()
-
-# Initialize teacher and student models
-teacher = models.resnet50(pretrained=True)
-teacher.fc = nn.Linear(teacher.fc.in_features, 10)
-teacher = teacher.to(device)
-
-student = models.resnet18(pretrained=False)
-student.fc = nn.Linear(student.fc.in_features, 10)
-student = student.to(device)
-
-# Set up optimizer and distiller
-optimizer = optim.SGD(student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-distiller = SoftTargetDistiller(student, teacher, optimizer=optimizer)
-
-# Distillation parameters
-num_epochs = 1
-alpha = 0.5  # Weight for distillation loss
-temperature = 2.0  # Temperature for softening outputs
-
-# Perform distillation
-distiller.distill(train_loader, num_epochs, device, alpha=alpha, temperature=temperature)
-
-# Evaluate the student model
-test_acc = evaluate(student, test_loader, device)
-print(f"Test Accuracy: {test_acc:.2f}%")
-```
-
-This example demonstrates how to set up and run a soft target distillation process using a larger ResNet50 model as the teacher and a smaller ResNet18 model as the student. The `SoftTargetDistiller` uses the teacher's softened outputs to guide the student's learning process.
